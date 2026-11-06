@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyS calculator</title>
+<style>
+:root{--bg:#e8edf1;--panel:#f7f9fb;--ink:#172430;--mute:#5b6b78;--line:#c5d0d9;--acc:#0b6e8e;--acc-ink:#fff;--bad:#b3402a;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#10181f;--panel:#17222b;--ink:#e3ebf1;--mute:#93a5b3;--line:#2b3b48;--acc:#4cc3e6;--acc-ink:#07222d;--bad:#ff8f77}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,-apple-system,sans-serif}
+.mono,input,textarea,.out,td.v{font-family:ui-monospace,"SF Mono",Consolas,Menlo,monospace}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+aside{border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
+aside h1{font-size:19px;margin:0 6px 14px;letter-spacing:-.01em}
+aside h1 small{display:block;font-weight:400;color:var(--mute);font-size:12.5px;margin-top:2px}
+nav button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink);padding:8px 10px;border-radius:6px;font:inherit;cursor:pointer}
+nav button:hover{background:var(--panel)}
+nav button.on{background:var(--acc);color:var(--acc-ink)}
+.width{margin-top:auto;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.width label{display:block;color:var(--mute);font-size:13px;margin-bottom:4px}
+select,input,textarea{font-size:14px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%}
+textarea{resize:vertical;min-height:70px}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+main{padding:28px 32px 60px;max-width:860px}
+section{display:none}
+section.on{display:block}
+h2{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
+.lead{color:var(--mute);margin:0 0 20px;max-width:60ch}
+.field{margin-bottom:12px}
+.field>label{display:block;font-size:13.5px;color:var(--mute);margin-bottom:3px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+input.bad{border-color:var(--bad)}
+.err{color:var(--bad);font-size:13px;min-height:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:16px 0}
+.card h3{margin:0 0 8px;font-size:15px}
+table{width:100%;border-collapse:collapse}
+td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:14px}
+th{color:var(--mute);font-weight:500}
+tr:last-child td{border-bottom:0}
+td.v,.out{word-break:break-all}
+.out{cursor:copy;position:relative}
+.out.copied::after{content:" copied";color:var(--acc);font-family:"Segoe UI",system-ui,sans-serif;font-size:12px}
+.bits{display:flex;flex-wrap:wrap;gap:10px}
+.byte{display:flex;gap:3px}
+.bit{width:28px;height:38px;border:1px solid var(--line);background:var(--bg);color:var(--mute);border-radius:5px;cursor:pointer;font:600 15px ui-monospace,Consolas,monospace;padding:0;position:relative}
+.bit.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+.bit i{position:absolute;bottom:-17px;left:0;right:0;font:11px ui-monospace,Consolas,monospace;font-style:normal;color:var(--mute)}
+.byte{margin-bottom:18px}
+.meter{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin:8px 0}
+.meter div{height:100%;background:var(--acc);width:0;transition:width .2s}
+.note{color:var(--mute);font-size:13px}
+@media (max-width:760px){
+ .app{grid-template-columns:1fr}
+ aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:12px}
+ nav{display:flex;gap:4px;overflow-x:auto}
+ nav button{white-space:nowrap;width:auto}
+ .width{margin-top:8px}
+ main{padding:20px 14px 50px}
+ .row{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){.meter div{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+ <h1>CyS calculator<small>Quick tools for cybersecurity coursework</small></h1>
+ <nav id="nav">
+  <button data-t="bases" class="on">Number bases</button>
+  <button data-t="text">Text encodings</button>
+  <button data-t="bits">Bitwise ops</button>
+  <button data-t="subnet">Subnet / CIDR</button>
+  <button data-t="hash">Hashes</button>
+  <button data-t="cipher">Caesar &amp; XOR</button>
+  <button data-t="entropy">Password entropy</button>
+ </nav>
+ <div class="width">
+  <label for="width">Bit width (bases and bitwise)</label>
+  <select id="width"><option>8</option><option>16</option><option selected>32</option><option>64</option></select>
+ </div>
+</aside>
+<main>
+
+<section id="bases" class="on">
+ <h2>Number bases</h2>
+ <p class="lead">Type in any box, or click the bits. Negative decimals are shown as two’s complement for the chosen width.</p>
+ <div class="row">
+  <div class="field"><label for="dec">Decimal</label><input id="dec" autocomplete="off" value="202"></div>
+  <div class="field"><label for="hex">Hexadecimal</label><input id="hex" autocomplete="off"></div>
+ </div>
+ <div class="row">
+  <div class="field"><label for="oct">Octal</label><input id="oct" autocomplete="off"></div>
+  <div class="field"><label for="bin">Binary</label><input id="bin" autocomplete="off"></div>
+ </div>
+ <div class="err" id="baseErr"></div>
+ <div class="card"><h3>Bits</h3><div class="bits" id="bitgrid"></div></div>
+ <table><tr><th>Unsigned</th><td class="v out" id="unsigned"></td></tr><tr><th>Signed (two’s complement)</th><td class="v out" id="signed"></td></tr><tr><th>As ASCII byte(s)</th><td class="v out" id="ascii"></td></tr></table>
+</section>
+
+<section id="text">
+ <h2>Text encodings</h2>
+ <p class="lead">Edit any field and the others follow. Everything is based on the UTF-8 bytes of the text.</p>
+ <div class="field"><label for="tx">Text</label><textarea id="tx">Hello, CyS!</textarea></div>
+ <div class="field"><label for="tbin">Binary</label><textarea id="tbin"></textarea></div>
+ <div class="row">
+  <div class="field"><label for="thex">Hex</label><textarea id="thex"></textarea></div>
+  <div class="field"><label for="tdec">Decimal bytes</label><textarea id="tdec"></textarea></div>
+ </div>
+ <div class="row">
+  <div class="field"><label for="tb64">Base64</label><textarea id="tb64"></textarea></div>
+  <div class="field"><label for="turl">URL-encoded</label><textarea id="turl"></textarea></div>
+ </div>
+ <div class="err" id="textErr"></div>
+</section>
+
+<section id="bits">
+ <h2>Bitwise operations</h2>
+ <p class="lead">Enter values as decimal, 0x hex, 0b binary, or 0o octal. Results are masked to the chosen bit width.</p>
+ <div class="row">
+  <div class="field"><label for="ba">A</label><input id="ba" value="0xC0A8" autocomplete="off"></div>
+  <div class="field"><label for="bb">B</label><input id="bb" value="0xFF00" autocomplete="off"></div>
+ </div>
+ <div class="field" style="max-width:200px"><label for="bn">Shift amount</label><input id="bn" type="number" min="0" max="63" value="4"></div>
+ <div class="err" id="bitErr"></div>
+ <div class="card"><table id="bitTable"></table></div>
+</section>
+
+<section id="subnet">
+ <h2>Subnet / CIDR (IPv4)</h2>
+ <p class="lead">Enter an address and prefix length. You can also type 192.168.10.77/26 in the address box.</p>
+ <div class="row">
+  <div class="field"><label for="ip">IP address</label><input id="ip" value="192.168.10.77" autocomplete="off"></div>
+  <div class="field"><label for="cidr">Prefix length (0 to 32)</label><input id="cidr" type="number" min="0" max="32" value="26"></div>
+ </div>
+ <div class="err" id="subErr"></div>
+ <div class="card"><table id="subTable"></table></div>
+</section>
+
+<section id="hash">
+ <h2>Hashes</h2>
+ <p class="lead">Computed in your browser with the Web Crypto API. MD5 isn’t available there; it is broken for security use anyway.</p>
+ <div class="field"><label for="hin">Input text</label><textarea id="hin">password</textarea></div>
+ <div class="card"><table id="hashTable"></table></div>
+ <p class="note">Click any result to copy it.</p>
+</section>
+
+<section id="cipher">
+ <h2>Caesar and XOR</h2>
+ <p class="lead">Two classic ciphers you will meet in intro labs and CTF warm-ups.</p>
+ <div class="card">
+  <h3>Caesar shift</h3>
+  <div class="field"><label for="cin">Text</label><textarea id="cin">Uryyb, PlF!</textarea></div>
+  <div class="row">
+   <div class="field"><label for="cs">Shift (1 to 25)</label><input id="cs" type="number" min="1" max="25" value="13"></div>
+   <div class="field"><label for="cm">Direction</label><select id="cm"><option value="1">Shift forward (encrypt)</option><option value="-1">Shift back (decrypt)</option></select></div>
+  </div>
+  <div class="field"><label>Result</label><div class="out mono" id="cout"></div></div>
+  <details><summary>Try all 25 shifts</summary><table id="brute"></table></details>
+ </div>
+ <div class="card">
+  <h3>XOR with a repeating key</h3>
+  <div class="row">
+   <div class="field"><label for="xin">Input</label><textarea id="xin">Hello</textarea></div>
+   <div class="field"><label for="xk">Key (text)</label><input id="xk" value="K" autocomplete="off"><label for="xf" style="margin-top:8px">Input is</label><select id="xf"><option value="text">Text</option><option value="hex">Hex bytes</option></select></div>
+  </div>
+  <table><tr><th>Hex</th><td class="v out" id="xhex"></td></tr><tr><th>As text</th><td class="v out" id="xtxt"></td></tr></table>
+  <div class="err" id="xErr"></div>
+ </div>
+</section>
+
+<section id="entropy">
+ <h2>Password entropy</h2>
+ <p class="lead">Estimates strength for a randomly chosen password. Nothing leaves this page, but still avoid typing a real password.</p>
+ <div class="field"><label for="pw">Password</label><input id="pw" value="Tr0ub4dor&amp;3" autocomplete="off"></div>
+ <div class="meter"><div id="meter"></div></div>
+ <table>
+  <tr><th>Length</th><td class="v" id="plen"></td></tr>
+  <tr><th>Character pool</th><td class="v" id="ppool"></td></tr>
+  <tr><th>Entropy</th><td class="v" id="pbits"></td></tr>
+  <tr><th>Average time to guess</th><td><select id="prate" style="margin-bottom:6px"><option value="100">Online login, 100 guesses/s</option><option value="1e10" selected>Offline, fast hash on a GPU, 10 billion/s</option><option value="1e12">Large cracking cluster, 1 trillion/s</option></select><div class="v mono" id="ptime"></div></td></tr>
+ </table>
+ <p class="note">Entropy = length × log₂(pool size). Real passwords built from words, names, or patterns are much weaker than this number suggests.</p>
+</section>
+
+</main>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const W=()=>+$('width').value;
+const asU=v=>BigInt.asUintN(W(),v);
+const group=(s,n)=>s.replace(new RegExp('(.{'+n+'})(?!$)','g'),'$1 ');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// Tabs
+$('nav').addEventListener('click',e=>{
+ const b=e.target.closest('button'); if(!b)return;
+ document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+ document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));
+});
+// Click to copy
+document.addEventListener('click',e=>{
+ const o=e.target.closest('.out'); if(!o)return;
+ const t=o.dataset.copy||o.textContent;
+ navigator.clipboard&&navigator.clipboard.writeText(t).then(()=>{o.classList.add('copied');setTimeout(()=>o.classList.remove('copied'),900)}).catch(()=>{});
+});
+
+// ---------- Number bases ----------
+let cur=0n;
+const RX={2:/^[01]+$/,8:/^[0-7]+$/,10:/^-?\d+$/,16:/^[0-9a-f]+$/i};
+const PRE={2:'0b',8:'0o',10:'',16:'0x'};
+function parseRadix(s,r){
+ s=s.replace(/[\s_]/g,'').replace(new RegExp('^'+(r==2?'0b':r==8?'0o':r==16?'0x':'(?!)'),'i'),'');
+ if(!s)return null;
+ if(!RX[r].test(s))return false;
+ return BigInt(PRE[r]+s);
+}
+function renderBits(v){
+ const w=W(),g=$('bitgrid');g.innerHTML='';
+ for(let hi=w;hi>0;hi-=8){
+  const by=document.createElement('div');by.className='byte';
+  for(let i=hi-1;i>=hi-8;i--){
+   const b=document.createElement('button');
+   const on=(v>>BigInt(i))&1n;
+   b.className='bit'+(on?' on':'');b.textContent=on?'1':'0';
+   b.title='bit '+i+' (value 2^'+i+')';b.dataset.i=i;b.setAttribute('aria-pressed',!!on);
+   b.insertAdjacentHTML('beforeend','<i>'+i+'</i>');
+   by.appendChild(b);
+  }
+  g.appendChild(by);
+ }
+}
+function showBases(v,src){
+ v=asU(v);cur=v;const w=W();
+ if(src!=='bin')$('bin').value=group(v.toString(2).padStart(w,'0'),4);
+ if(src!=='oct')$('oct').value=v.toString(8);
+ if(src!=='dec')$('dec').value=v.toString();
+ if(src!=='hex')$('hex').value=group(v.toString(16).toUpperCase().padStart(w/4,'0'),4);
+ $('unsigned').textContent=v.toString();
+ $('signed').textContent=BigInt.asIntN(w,v).toString();
+ let a='';
+ for(let i=w-8;i>=0;i-=8){const c=Number((v>>BigInt(i))&255n);a+=(c>=32&&c<127)?String.fromCharCode(c):'·'}
+ $('ascii').textContent=a;
+ renderBits(v);
+}
+[['bin',2],['oct',8],['dec',10],['hex',16]].forEach(([id,r])=>{
+ $(id).addEventListener('input',()=>{
+  const v=parseRadix($(id).value,r);
+  $(id).classList.toggle('bad',v===false);
+  $('baseErr').textContent=v===false?'That value has characters that aren’t valid in base '+r+'.':'';
+  if(v!==null&&v!==false)showBases(v,id);
+ });
+});
+$('bitgrid').addEventListener('click',e=>{
+ const b=e.target.closest('.bit');if(!b)return;
+ ['bin','oct','dec','hex'].forEach(id=>$(id).classList.remove('bad'));$('baseErr').textContent='';
+ showBases(cur^(1n<<BigInt(b.dataset.i)));
+});
+
+// ---------- Text encodings ----------
+const enc=new TextEncoder(),dec=new TextDecoder();
+function textSet(bytes,src){
+ const t=dec.decode(bytes);
+ const hex=[...bytes].map(b=>b.toString(16).padStart(2,'0')).join(' ');
+ const vals={tx:t,tbin:[...bytes].map(b=>b.toString(2).padStart(8,'0')).join(' '),thex:hex,tdec:[...bytes].join(' '),
+  tb64:btoa(String.fromCharCode(...bytes)),turl:encodeURIComponent(t)};
+ for(const k in vals)if(k!==src)$(k).value=vals[k];
+}
+function chunk(s,n){const o=[];for(let i=0;i<s.length;i+=n)o.push(s.slice(i,i+n));return o}
+const TP={
+ tx:v=>enc.encode(v),
+ tbin:v=>{v=v.replace(/\s/g,'');if(!/^[01]*$/.test(v)||v.length%8)throw'Binary needs groups of 8 bits using only 0 and 1.';return Uint8Array.from(chunk(v,8).map(x=>parseInt(x,2)))},
+ thex:v=>{v=v.replace(/\s|0x/gi,'');if(!/^[0-9a-f]*$/i.test(v)||v.length%2)throw'Hex needs an even number of digits 0-9 and a-f.';return Uint8Array.from(chunk(v,2).map(x=>parseInt(x,16)))},
+ tdec:v=>{const p=v.trim()?v.trim().split(/[\s,]+/).map(Number):[];if(p.some(n=>!Number.isInteger(n)||n<0||n>255))throw'Decimal bytes must be whole numbers from 0 to 255.';return Uint8Array.from(p)},
+ tb64:v=>{try{return Uint8Array.from(atob(v.trim()),c=>c.charCodeAt(0))}catch(e){throw'That isn’t valid Base64.'}},
+ turl:v=>{try{return enc.encode(decodeURIComponent(v))}catch(e){throw'That isn’t valid URL encoding.'}}
+};
+Object.keys(TP).forEach(id=>$(id).addEventListener('input',()=>{
+ try{$('textErr').textContent='';textSet(TP[id]($(id).value),id)}catch(e){$('textErr').textContent=typeof e==='string'?e:'Could not convert that.'}
+}));
+
+// ---------- Bitwise ----------
+function parseAny(s){
+ s=s.trim().replace(/_/g,'');
+ if(/^-?0x[0-9a-f]+$/i.test(s)||/^-?0b[01]+$/i.test(s)||/^-?0o[0-7]+$/i.test(s)||/^-?\d+$/.test(s)){
+  const neg=s[0]==='-';const v=BigInt(neg?s.slice(1):s);return neg?-v:v;
+ }
+ return null;
+}
+function bitwise(){
+ const a=parseAny($('ba').value),b=parseAny($('bb').value),n=BigInt(Math.max(0,Math.min(63,+$('bn').value||0)));
+ const w=W();
+ if(a===null||b===null){$('bitErr').textContent='Enter A and B as decimal, 0x, 0b, or 0o numbers.';return}
+ $('bitErr').textContent='';
+ const A=asU(a),B=asU(b);
+ const rows=[['A',A],['B',B],['A AND B',A&B],['A OR B',A|B],['A XOR B',A^B],['A NAND B',asU(~(A&B))],['A NOR B',asU(~(A|B))],['NOT A',asU(~A)],['A << '+n,asU(A<<n)],['A >> '+n+' (logical)',A>>n]];
+ $('bitTable').innerHTML='<tr><th>Operation</th><th>Binary</th><th>Hex</th><th>Decimal</th></tr>'+rows.map(([l,v])=>
+  '<tr><td>'+esc(l)+'</td><td class="v out">'+group(v.toString(2).padStart(w,'0'),4)+'</td><td class="v out">0x'+v.toString(16).toUpperCase().padStart(w/4,'0')+'</td><td class="v out">'+v+'</td></tr>').join('');
+}
+['ba','bb','bn'].forEach(id=>$(id).addEventListener('input',bitwise));
+
+// ---------- Subnet ----------
+const dotted=n=>[n>>>24,(n>>>16)&255,(n>>>8)&255,n&255].join('.');
+const bin32=n=>group(n.toString(2).padStart(32,'0'),8).replace(/ /g,'.');
+function subnet(){
+ let s=$('ip').value.trim(),c=+$('cidr').value;
+ if(s.includes('/')){const p=s.split('/');s=p[0];c=+p[1];$('cidr').value=c}
+ const m=s.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+ if(!m||m.slice(1).some(x=>+x>255)||!Number.isInteger(c)||c<0||c>32){$('subErr').textContent='Enter a valid IPv4 address (like 10.0.0.5) and a prefix from 0 to 32.';return}
+ $('subErr').textContent='';
+ const ip=((+m[1]<<24)|(+m[2]<<16)|(+m[3]<<8)|+m[4])>>>0;
+ const mask=c===0?0:(0xFFFFFFFF<<(32-c))>>>0;
+ const net=(ip&mask)>>>0,bc=(net|(~mask>>>0))>>>0;
+ const size=2**(32-c);
+ const hosts=c>=31?size:size-2;
+ const f=+m[1];
+ const cls=f<128?'A':f<192?'B':f<224?'C':f<240?'D (multicast)':'E (reserved)';
+ let kind='Public';
+ if(f===10||(f===172&&+m[2]>=16&&+m[2]<=31)||(f===192&&+m[2]===168))kind='Private (RFC 1918)';
+ else if(f===127)kind='Loopback';
+ else if(f===169&&+m[2]===254)kind='Link-local (APIPA)';
+ const first=c>=31?net:net+1,last=c>=31?bc:bc-1;
+ const rows=[['Address',dotted(ip)+'/'+c],['Address (binary)',bin32(ip)],['Subnet mask',dotted(mask)],['Mask (binary)',bin32(mask)],['Wildcard mask',dotted(~mask>>>0)],
+  ['Network address',dotted(net)],['Broadcast address',c>=31?'n/a for /'+c:dotted(bc)],['First usable host',dotted(first)],['Last usable host',dotted(last)],
+  ['Usable hosts',hosts.toLocaleString()],['Total addresses',size.toLocaleString()],['Class',cls],['Type',kind]];
+ $('subTable').innerHTML=rows.map(([k,v])=>'<tr><th>'+k+'</th><td class="v out">'+v+'</td></tr>').join('');
+}
+['ip','cidr'].forEach(id=>$(id).addEventListener('input',subnet));
+
+// ---------- Hashes ----------
+let hashRun=0;
+async function hashAll(){
+ const run=++hashRun,data=enc.encode($('hin').value);
+ try{
+  const rows=[];
+  for(const a of ['SHA-1','SHA-256','SHA-384','SHA-512']){
+   const d=new Uint8Array(await crypto.subtle.digest(a,data));
+   rows.push([a,[...d].map(b=>b.toString(16).padStart(2,'0')).join('')]);
+  }
+  if(run!==hashRun)return;
+  $('hashTable').innerHTML=rows.map(([k,v])=>'<tr><th>'+k+'</th><td class="v out">'+v+'</td></tr>').join('');
+ }catch(e){$('hashTable').innerHTML='<tr><td>Hashing needs a secure context. Open this file in a current browser, or serve it from localhost.</td></tr>'}
+}
+$('hin').addEventListener('input',hashAll);
+
+// ---------- Caesar & XOR ----------
+function caesar(s,k){return s.replace(/[a-z]/gi,c=>{const b=c<='Z'?65:97;return String.fromCharCode((((c.charCodeAt(0)-b+k)%26)+26)%26+b)})}
+function doCaesar(){
+ const s=Math.max(1,Math.min(25,+$('cs').value||1)),d=+$('cm').value,t=$('cin').value;
+ $('cout').textContent=caesar(t,s*d);
+ $('brute').innerHTML=Array.from({length:25},(_,i)=>'<tr><th>+'+(i+1)+'</th><td class="v out">'+esc(caesar(t,i+1))+'</td></tr>').join('');
+}
+['cin','cs','cm'].forEach(id=>$(id).addEventListener('input',doCaesar));
+function doXor(){
+ try{
+  $('xErr').textContent='';
+  let data;
+  if($('xf').value==='hex'){
+   const h=$('xin').value.replace(/\s|0x/gi,'');
+   if(!/^[0-9a-f]*$/i.test(h)||h.length%2)throw'Hex input needs an even number of digits 0-9 and a-f.';
+   data=Uint8Array.from(chunk(h,2).map(x=>parseInt(x,16)));
+  }else data=enc.encode($('xin').value);
+  const key=enc.encode($('xk').value);
+  if(!key.length)throw'Enter a key.';
+  const out=data.map((b,i)=>b^key[i%key.length]);
+  $('xhex').textContent=[...out].map(b=>b.toString(16).padStart(2,'0')).join(' ');
+  $('xtxt').textContent=[...out].map(b=>(b>=32&&b<127)?String.fromCharCode(b):'·').join('');
+ }catch(e){$('xErr').textContent=typeof e==='string'?e:'Could not process that.'}
+}
+['xin','xk','xf'].forEach(id=>$(id).addEventListener('input',doXor));
+
+// ---------- Entropy ----------
+function fmtTime(s){
+ if(s<1)return 'under a second';
+ const u=[['years',31557600],['days',86400],['hours',3600],['minutes',60],['seconds',1]];
+ if(s>=31557600*1e9)return 'longer than a billion years';
+ for(const [n,v] of u)if(s>=v)return (s/v>=100?Math.round(s/v).toLocaleString():(s/v).toFixed(1))+' '+n;
+}
+function entropy(){
+ const p=$('pw').value;let pool=0;
+ if(/[a-z]/.test(p))pool+=26;if(/[A-Z]/.test(p))pool+=26;if(/\d/.test(p))pool+=10;
+ if(/[ -\/:-@\[-`{-~]/.test(p))pool+=33;if(/[^\x00-\x7f]/.test(p))pool+=100;
+ const bits=pool?p.length*Math.log2(pool):0;
+ $('plen').textContent=p.length;$('ppool').textContent=pool+' possible characters';
+ $('pbits').textContent=bits.toFixed(1)+' bits';
+ $('meter').style.width=Math.min(100,bits/128*100)+'%';
+ $('ptime').textContent=pool?fmtTime(Math.pow(2,bits-1)/+$('prate').value):'';
+}
+['pw','prate'].forEach(id=>$(id).addEventListener('input',entropy));
+
+// ---------- Init ----------
+$('width').addEventListener('change',()=>{showBases(cur);bitwise()});
+showBases(202n);bitwise();subnet();hashAll();doCaesar();doXor();entropy();
+textSet(enc.encode($('tx').value),'tx');
+</script>
+</body>
+</html>
